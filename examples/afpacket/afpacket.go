@@ -34,6 +34,7 @@ var (
 	count      = flag.Int64("c", -1, "If >= 0, # of packets to capture before returning")
 	verbose    = flag.Int64("log_every", 1, "Write a log every X packets")
 	addVLAN    = flag.Bool("add_vlan", false, "If true, add VLAN header")
+	promis     = flag.Bool("p", false, "If true, device driver in promiscuous mode")
 )
 
 type afpacketHandle struct {
@@ -41,7 +42,7 @@ type afpacketHandle struct {
 }
 
 func newAfpacketHandle(device string, snaplen int, block_size int, num_blocks int,
-	useVLAN bool, timeout time.Duration) (*afpacketHandle, error) {
+	useVLAN bool, isPromis bool, timeout time.Duration) (*afpacketHandle, error) {
 
 	h := &afpacketHandle{}
 	var err error
@@ -63,6 +64,7 @@ func newAfpacketHandle(device string, snaplen int, block_size int, num_blocks in
 			afpacket.OptNumBlocks(num_blocks),
 			afpacket.OptAddVLANHeader(useVLAN),
 			afpacket.OptPollTimeout(timeout),
+			afpacket.OptPromiscuous(isPromis),
 			afpacket.SocketRaw,
 			afpacket.TPacketVersion3)
 	}
@@ -156,7 +158,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	afpacketHandle, err := newAfpacketHandle(*iface, szFrame, szBlock, numBlocks, *addVLAN, pcap.BlockForever)
+	afpacketHandle, err := newAfpacketHandle(*iface, szFrame, szBlock, numBlocks, *addVLAN, *promis, pcap.BlockForever)
 	if err != nil {
 		log.Fatal(err)
 	}

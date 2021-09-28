@@ -106,6 +106,9 @@ type OptPollTimeout time.Duration
 // be provided if available.
 type OptAddVLANHeader bool
 
+// device driver in promiscuous mode
+type OptPromiscuous bool
+
 // Default constants used by options.
 const (
 	DefaultFrameSize    = 4096                   // Default value for OptFrameSize.
@@ -113,6 +116,7 @@ const (
 	DefaultNumBlocks    = 128                    // Default value for OptNumBlocks.
 	DefaultBlockTimeout = 64 * time.Millisecond  // Default value for OptBlockTimeout.
 	DefaultPollTimeout  = -1 * time.Millisecond  // Default value for OptPollTimeout. This blocks forever.
+	DefaultPromiscuous  = false                  // Default value for OptPromiscuous.
 )
 
 type options struct {
@@ -126,6 +130,7 @@ type options struct {
 	version        OptTPacketVersion
 	socktype       OptSocketType
 	iface          string
+	promis         bool
 }
 
 var defaultOpts = options{
@@ -136,6 +141,7 @@ var defaultOpts = options{
 	pollTimeout:  DefaultPollTimeout,
 	version:      TPacketVersionHighestAvailable,
 	socktype:     SocketRaw,
+	promis:       DefaultPromiscuous,
 }
 
 func parseOptions(opts ...interface{}) (ret options, err error) {
@@ -160,6 +166,8 @@ func parseOptions(opts ...interface{}) (ret options, err error) {
 			ret.socktype = v
 		case OptAddVLANHeader:
 			ret.addVLANHeader = bool(v)
+		case OptPromiscuous:
+			ret.promis = bool(v)
 		default:
 			err = errors.New("unknown type in options")
 			return

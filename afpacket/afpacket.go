@@ -124,6 +124,8 @@ type TPacket struct {
 	// getTPacketHeader, and we don't want to allocate a v3wrapper every time,
 	// so we leave it in the TPacket object and return a pointer to it.
 	v3 v3wrapper
+	// dev index
+	ifIndex int
 
 	statsMu sync.Mutex // guards stats below
 	// socketStats contains stats from the socket
@@ -149,6 +151,7 @@ func (h *TPacket) bindToInterface(ifaceName string) error {
 		Protocol: htons(uint16(unix.ETH_P_ALL)),
 		Ifindex:  ifIndex,
 	}
+	h.ifIndex = ifIndex
 	return unix.Bind(h.fd, s)
 }
 
@@ -254,6 +257,12 @@ func NewTPacket(opts ...interface{}) (h *TPacket, err error) {
 	if err = h.InitSocketStats(); err != nil {
 		goto errlbl
 	}
+	// add promis if not any dev mode
+	if h.opts.iface != "any" && h.opts.promis {
+		if err = h.setPromis(); err != nil {
+			goto errlbl
+		}
+	}
 	runtime.SetFinalizer(h, (*TPacket).Close)
 	return h, nil
 errlbl:
@@ -276,6 +285,22 @@ func (h *TPacket) SetBPF(filter []bpf.RawInstruction) error {
 // attach ebpf filter to af-packet
 func (h *TPacket) SetEBPF(progFd int32) error {
 	return setsockopt(h.fd, unix.SOL_SOCKET, unix.SO_ATTACH_BPF, unsafe.Pointer(&progFd), 4)
+}
+
+type packetMreq struct {
+	mrIfindex int32
+	mrType    uint16
+	mrAlen    uint16
+	mrAddress [8]uint8
+}
+
+func (h *TPacket) setPromis() error {
+	p := &packetMreq{
+		mrIfindex: int32(h.ifIndex),
+		mrType:    unix.PACKET_MR_PROMISC,
+	}
+
+	return setsockopt(h.fd, unix.SOL_PACKET, unix.PACKET_ADD_MEMBERSHIP, unsafe.Pointer(p), unsafe.Sizeof(*p))
 }
 
 func (h *TPacket) releaseCurrentPacket() error {
